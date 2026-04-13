@@ -3,20 +3,6 @@ Web interface for CrawlFeasibility - Cloudflare Pages compatible version
 """
 import asyncio
 import json
-import os
-from flask import Flask, request, jsonify
-
-app = Flask(__name__)
-
-def run_async(coro):
-    """Helper to run async functions in Flask"""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
-
 
 async def perform_detection(url, deep=False):
     """执行检测并返回结果"""
@@ -47,53 +33,93 @@ async def perform_detection(url, deep=False):
     return result
 
 
-@app.route('/')
-def index():
-    """Health check endpoint"""
-    return jsonify({"status": "ok", "service": "CrawlFeasibility"})
-
-
-@app.route('/scan', methods=['POST'])
-def scan():
-    """执行扫描"""
+def run_async(coro):
+    """Helper to run async functions"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        data = request.get_json()
-    except Exception:
-        data = {}
-    
-    url = data.get('url') if data else None
-    deep = data.get('deep', False) if data else False
-    
-    if not url:
-        return jsonify({'error': 'URL is required'}), 400
-    
-    if not url.startswith(('http://', 'https://')):
-        url = 'https://' + url
-    
-    try:
-        result = run_async(perform_detection(url, deep))
-        return jsonify(result.to_dict())
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
 
 
-@app.route('/api/scan', methods=['POST'])
-def api_scan():
-    """Alias for /scan for Cloudflare Pages API compatibility"""
-    return scan()
-
-
-# Cloudflare Pages uses this
 def handler(request):
-    """Handle requests for Cloudflare Pages"""
+    """Cloudflare Pages handler function"""
     method = request.method
     path = request.path
     
     if path == '/' and method == 'GET':
-        return index()
+        return Response(json.dumps({"status": "ok", "service": "CrawlFeasibility"}), 
+                       mimetype='application/json')
+    
     elif path == '/scan' and method == 'POST':
-        return scan()
+        try:
+            try:
+                data = json.loads(request.text)
+            except:
+                data = {}
+            
+            url = data.get('url') if data else None
+            deep = data.get('deep', False) if data else False
+            
+            if not url:
+                return Response(json.dumps({'error': 'URL is required'}), 
+                             status=400, mimetype='application/json')
+            
+            if not url.startswith(('http://', 'https://')):
+                url = 'https://' + url
+            
+            try:
+                result = run_async(perform_detection(url, deep))
+                return Response(json.dumps(result.to_dict()), 
+                             mimetype='application/json')
+            except Exception as e:
+                return Response(json.dumps({'error': str(e)}), 
+                             status=500, mimetype='application/json')
+        except Exception as e:
+            return Response(json.dumps({'error': str(e)}), 
+                         status=500, mimetype='application/json')
+    
     elif path == '/api/scan' and method == 'POST':
-        return api_scan()
+        try:
+            try:
+                data = json.loads(request.text)
+            except:
+                data = {}
+            
+            url = data.get('url') if data else None
+            deep = data.get('deep', False) if data else False
+            
+            if not url:
+                return Response(json.dumps({'error': 'URL is required'}), 
+                             status=400, mimetype='application/json')
+            
+            if not url.startswith(('http://', 'https://')):
+                url = 'https://' + url
+            
+            try:
+                result = run_async(perform_detection(url, deep))
+                return Response(json.dumps(result.to_dict()), 
+                             mimetype='application/json')
+            except Exception as e:
+                return Response(json.dumps({'error': str(e)}), 
+                             status=500, mimetype='application/json')
+        except Exception as e:
+            return Response(json.dumps({'error': str(e)}), 
+                         status=500, mimetype='application/json')
+    
     else:
-        return jsonify({"error": "Not found"}), 404
+        return Response(json.dumps({"error": "Not found"}), 
+                     status=404, mimetype='application/json')
+
+
+class Response:
+    """Simple response wrapper for Cloudflare Pages"""
+    def __init__(self, body, status=200, mimetype='text/html'):
+        self.body = body
+        self.status = status
+        self.mimetype = mimetype
+    
+    def __call__(self, environ, start_response):
+        start_response(str(self.status), [('Content-Type', self.mimetype)])
+        return [self.body.encode()]
