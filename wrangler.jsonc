@@ -1,15 +1,5 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
   "name": "crawlfeasibility",
   "compatibility_date": "2026-04-14",
-  "observability": {
-    "enabled": true
-  },
-  "assets": {
-    "directory": "public"
-  },
-  "pages": {
-    "compatibility_flags": ["nodejs_compat"],
-    "functions": "functions/"
-  }
+  "main": "_worker.js"
 }
