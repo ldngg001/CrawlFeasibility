@@ -1,4 +1,4 @@
 / /index.html
-/scan /functions/hello.py
-/api/scan /functions/hello.py
+/scan /functions/scan.js
+/api/scan /functions/scan.js
 /* /index.html
